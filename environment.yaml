@@ -1,0 +1,39 @@
+name: dilo
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.9
+  # Core Deep Learning Framework
+  - pytorch=2.1.0
+  - torchvision=0.16.0
+  - pytorch-cuda=11.8
+  - pytorch-lightning=2.1.0
+  
+  # Physics Simulation (FEniCS / Dolfin)
+  # Note: FEniCS is primarily supported on Linux via conda-forge
+  - fenics=2019.1.0
+  - mpi4py
+  
+  # Math and Data Processing
+  - numpy=1.24.3
+  - scipy
+  - matplotlib
+  - pyyaml
+  - tqdm
+  - scikit-image  # Required for PSNR calculations
+  - scikit-learn
+  
+  # Specific dependencies for LDM and FNO
+  - pip:
+      - einops         # Essential for rearrange/repeat in LDM
+      - taming-transformers-rom1504 # Required for VQVAE/VQModel
+      - omegaconf      # For handling LDM configuration files
+      - albumentations # Common dependency for Latent Diffusion
+      - opencv-python
+      - torchsummary   # Optional import in model/FNO.py
+      - kornia
+      - imageio
+      - imageio-ffmpeg

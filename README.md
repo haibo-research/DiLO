@@ -10,8 +10,8 @@ In this work, we propose DiLO, an algorithm that can solve PDE-constrained inver
 
 ### 1) Clone the repository
 
-```bash
-git clone [https://github.com/haibo-research/DiLO.git](https://github.com/haibo-research/DiLO.git)
+```
+git clone https://github.com/haibo-research/DiLO.git
 cd DiLO
 ```
 <br /> 
@@ -22,23 +22,20 @@ Our work utilizes the pre-trained Latent Diffusion Models trained on the FFHQ da
 Please run the following commands to download the necessary checkpoints:
 
 ```
-Bash
 mkdir -p models/ldm
-wget [https://ommer-lab.com/files/latent-diffusion/ffhq.zip](https://ommer-lab.com/files/latent-diffusion/ffhq.zip) -P ./models/ldm
+wget https://ommer-lab.com/files/latent-diffusion/ffhq.zip -P ./models/ldm
 unzip models/ldm/ffhq.zip -d ./models/ldm
 
 mkdir -p models/first_stage_models/vq-f4
-wget [https://ommer-lab.com/files/latent-diffusion/vq-f4.zip](https://ommer-lab.com/files/latent-diffusion/vq-f4.zip) -P ./models/first_stage_models/vq-f4
+wget https://ommer-lab.com/files/latent-diffusion/vq-f4.zip -P ./models/first_stage_models/vq-f4
 unzip models/first_stage_models/vq-f4/vq-f4.zip -d ./models/first_stage_models/vq-f4
 ```
 <br />
-
 
 ### 3) Set environment
 Install the required dependencies via conda:
 
 ```
-Bash
 conda env create -f environment.yaml
 conda activate dilo
 ```
@@ -50,7 +47,6 @@ conda activate dilo
 To train the fast neural operator serving as the surrogate solver for the forward physical model, run:
 
 ```
-Bash
 python run_fno.py
 ```
 <br />
@@ -59,7 +55,6 @@ python run_fno.py
 To perform the inference and solve the inverse problems using the proposed Diffusion Latent Optimization (DiLO), run:
 
 ```
-Bash
 python run_reconstruction.py
 ```
 
