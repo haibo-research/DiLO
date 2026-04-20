@@ -47,7 +47,7 @@ conda activate dilo
 To train the fast neural operator serving as the surrogate solver for the forward physical model, run:
 
 ```
-python run_fno.py
+bash run_fno.sh
 ```
 <br />
 
@@ -55,7 +55,7 @@ python run_fno.py
 To perform the inference and solve the inverse problems using the proposed Diffusion Latent Optimization (DiLO), run:
 
 ```
-python run_reconstruction.py
+bash run_reconstruction.sh
 ```
 
 The current code supports PDE-constrained inverse problems including Electrical Impedance Tomography, Inverse Scattering, and Inverse Navier-Stokes. You can modify the configuration files or arguments to switch between different physical tasks.
