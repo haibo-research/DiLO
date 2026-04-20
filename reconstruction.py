@@ -28,31 +28,28 @@ sys.path.append(project_root)
 sys.path.append(os.path.join(current_dir, "model"))
 sys.path.append(os.path.join(current_dir, "model/ldm"))
 
-# 导入扩散模型相关模块
+
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.util import instantiate_from_config
 
-# 标准导入
+
 from utils.load import NpyReader, GaussianNormalizer
 from utils.Loss import LpLoss
 
 
 def get_finetuned_model(checkpoint_path, device='cuda', config_path=None):
-    """加载微调后的模型 - 参考inv.py"""
     try:
         print(f"Loading finetuned model from {checkpoint_path}")
         
         if config_path is None:
             config_path = "work_dir/diffusion/configs/latent-diffusion/ffhq-ldm-vq-4.yaml"
         
-        # 使用简单的yaml加载替代OmegaConf
         with open(config_path, 'r') as f:
             config_dict = yaml.safe_load(f)
         
-        # 创建简单的配置对象
         class SimpleConfig:
             def __init__(self, d):
-                self._dict = d.copy()  # 创建副本以避免修改原始字典
+                self._dict = d.copy()
                 for k, v in d.items():
                     if isinstance(v, dict):
                         setattr(self, k, SimpleConfig(v))
@@ -66,7 +63,7 @@ def get_finetuned_model(checkpoint_path, device='cuda', config_path=None):
                 if hasattr(self, key):
                     attr = getattr(self, key)
                     if isinstance(attr, SimpleConfig):
-                        return attr._dict  # 返回字典而不是SimpleConfig对象
+                        return attr._dict
                     return attr
                 return default
             
@@ -75,14 +72,12 @@ def get_finetuned_model(checkpoint_path, device='cuda', config_path=None):
             
             def __setattr__(self, key, value):
                 super().__setattr__(key, value)
-                # 同时更新内部字典
                 if key != '_dict' and hasattr(self, '_dict'):
                     if isinstance(value, SimpleConfig):
                         self._dict[key] = value._dict
                     else:
                         self._dict[key] = value
         
-        # 自动修正ckpt_path为绝对路径（在创建SimpleConfig之前修改原始字典）
         if ('model' in config_dict and 'params' in config_dict['model'] and 
             'first_stage_config' in config_dict['model']['params'] and
             'params' in config_dict['model']['params']['first_stage_config'] and
@@ -116,28 +111,21 @@ def get_finetuned_model(checkpoint_path, device='cuda', config_path=None):
 
 
 def save_intermediate_results(iteration, conductivity, loss_val, save_dir, voltage_pred=None, voltage_true=None, ground_truth=None):
-    """保存中间结果（参考inv.py实现）- 修改为三个子图布局：Ground Truth、Current、Difference"""
     try:
         os.makedirs(save_dir, exist_ok=True)
         
-        # 保存电导率分布
         conductivity_np = conductivity.detach().cpu().numpy()
         
-        # 创建三个子图的布局
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 6))
         
-        # 去掉batch维度
         if conductivity_np.ndim > 2:
             conductivity_np = conductivity_np.squeeze()
         
-        # 左图：Ground Truth Target
         if ground_truth is not None:
             ground_truth_np = ground_truth.detach().cpu().numpy() if hasattr(ground_truth, 'detach') else ground_truth
-            # 去掉batch维度
             if ground_truth_np.ndim > 2:
                 ground_truth_np = ground_truth_np.squeeze()
-            
-            # 使用Ground Truth的colorbar范围作为统一标准
+
             vmin_conductivity = ground_truth_np.min()
             vmax_conductivity = ground_truth_np.max()
             
@@ -146,14 +134,12 @@ def save_intermediate_results(iteration, conductivity, loss_val, save_dir, volta
             ax1.axis('off')
             plt.colorbar(im1, ax=ax1, label='Conductivity (S/m)', shrink=0.8)
             
-            # 中图：当前迭代的电导率分布（使用Ground Truth的颜色范围）
             im2 = ax2.imshow(conductivity_np, cmap='viridis', vmin=vmin_conductivity, vmax=vmax_conductivity)
             ax2.set_title(f'Current Reconstruction (Iter {iteration})\nLoss: {loss_val:.6f}', 
                          fontsize=14, fontweight='bold')
             ax2.axis('off')
             plt.colorbar(im2, ax=ax2, label='Conductivity (S/m)', shrink=0.8)
             
-            # 右图：差异图（使用独立的colorbar范围）
             difference = np.abs(ground_truth_np - conductivity_np)
             im3 = ax3.imshow(difference, cmap='Reds')
             ax3.set_title(f'Absolute Difference\nMAE: {difference.mean():.6f}', 
@@ -162,12 +148,10 @@ def save_intermediate_results(iteration, conductivity, loss_val, save_dir, volta
             plt.colorbar(im3, ax=ax3, label='|GT - Recon|', shrink=0.8)
             
         else:
-            # 如果没有Ground Truth，只显示当前重建结果
             ax1.text(0.5, 0.5, 'Ground Truth\nNot Available', 
                     ha='center', va='center', transform=ax1.transAxes, fontsize=12)
             ax1.axis('off')
             
-            # 中图：当前迭代的电导率分布
             im2 = ax2.imshow(conductivity_np, cmap='viridis')
             ax2.set_title(f'Current Reconstruction (Iter {iteration})\nLoss: {loss_val:.6f}', 
                          fontsize=14, fontweight='bold')
@@ -178,20 +162,16 @@ def save_intermediate_results(iteration, conductivity, loss_val, save_dir, volta
                     ha='center', va='center', transform=ax3.transAxes, fontsize=12)
             ax3.axis('off')
         
-        # 调整布局
         plt.tight_layout()
         
-        # 保存图像
         conductivity_img_path = os.path.join(save_dir, f"comparison_iter_{iteration:04d}.png")
         plt.savefig(conductivity_img_path, dpi=150, bbox_inches='tight')
-        plt.close(fig)  # 显式关闭特定的figure对象
+        plt.close(fig) 
         
-        # 记录损失值
         loss_log_path = os.path.join(save_dir, "loss_log.txt")
         with open(loss_log_path, "a") as f:
             f.write(f"Iteration {iteration:4d}, Loss: {loss_val:.8f}\n")
         
-        # 记录电导率统计信息
         stats_log_path = os.path.join(save_dir, "conductivity_stats.txt")
         with open(stats_log_path, "a") as f:
             mean_val = float(conductivity_np.mean())
@@ -201,7 +181,6 @@ def save_intermediate_results(iteration, conductivity, loss_val, save_dir, volta
             f.write(f"Iteration {iteration:4d}: Mean={mean_val:.4f}, Std={std_val:.4f}, "
                    f"Range=[{min_val:.4f}, {max_val:.4f}] S/m\n")
             
-            # 如果有Ground Truth，也记录差异统计
             if ground_truth is not None:
                 ground_truth_np = ground_truth.detach().cpu().numpy() if hasattr(ground_truth, 'detach') else ground_truth
                 if ground_truth_np.ndim > 2:
@@ -213,19 +192,16 @@ def save_intermediate_results(iteration, conductivity, loss_val, save_dir, volta
             
     except Exception as e:
         print(f"Error saving intermediate results for iteration {iteration}: {e}")
-        plt.close('all')  # 发生异常时关闭所有figure
+        plt.close('all')
 
 
 def plot_real_time_loss(losses, output_dir, iteration=None):
-    """实时绘制loss曲线并保存"""
     try:
         if not losses:
             return
         
-        # 创建2x2的子图布局
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
         
-        # 1. 线性尺度的loss曲线
         ax1.plot(losses, 'b-', linewidth=2, alpha=0.8)
         ax1.set_xlabel('Iteration')
         ax1.set_ylabel('Loss')
@@ -234,7 +210,6 @@ def plot_real_time_loss(losses, output_dir, iteration=None):
         if losses:
             ax1.set_ylim(0, max(losses) * 1.1)
         
-        # 2. 对数尺度的loss曲线
         ax2.plot(losses, 'r-', linewidth=2, alpha=0.8)
         ax2.set_xlabel('Iteration')
         ax2.set_ylabel('Loss (log scale)')
@@ -242,7 +217,6 @@ def plot_real_time_loss(losses, output_dir, iteration=None):
         ax2.set_yscale('log')
         ax2.grid(True, alpha=0.3)
         
-        # 3. 最近100次迭代的loss变化
         recent_losses = losses[-100:] if len(losses) > 100 else losses
         recent_iterations = list(range(max(0, len(losses)-100), len(losses)))
         ax3.plot(recent_iterations, recent_losses, 'g-', linewidth=2, alpha=0.8)
@@ -251,9 +225,7 @@ def plot_real_time_loss(losses, output_dir, iteration=None):
         ax3.set_title('Recent 100 Iterations')
         ax3.grid(True, alpha=0.3)
         
-        # 4. loss统计信息
         if len(losses) > 10:
-            # 计算移动平均
             window_size = min(10, len(losses))
             moving_avg = []
             for i in range(len(losses)):
@@ -268,7 +240,6 @@ def plot_real_time_loss(losses, output_dir, iteration=None):
             ax4.legend()
             ax4.grid(True, alpha=0.3)
         else:
-            # 如果数据点太少，只显示基本统计
             ax4.text(0.5, 0.7, f'Current Loss: {losses[-1]:.6f}', 
                     transform=ax4.transAxes, ha='center', fontsize=12)
             ax4.text(0.5, 0.5, f'Min Loss: {min(losses):.6f}', 
@@ -280,12 +251,10 @@ def plot_real_time_loss(losses, output_dir, iteration=None):
         
         plt.tight_layout()
         
-        # 保存图片
         loss_plot_path = os.path.join(output_dir, 'real_time_loss_curve.png')
         plt.savefig(loss_plot_path, dpi=150, bbox_inches='tight')
-        plt.close(fig)  # 显式关闭特定的figure对象
+        plt.close(fig) 
         
-        # 同时保存损失数据为文本文件
         loss_data_path = os.path.join(output_dir, 'loss_data.txt')
         with open(loss_data_path, 'w') as f:
             f.write("Iteration\tLoss\n")
@@ -294,51 +263,25 @@ def plot_real_time_loss(losses, output_dir, iteration=None):
            
     except Exception as e:
         print(f"Error plotting real-time loss: {e}")
-        plt.close('all')  # 发生异常时关闭所有figure
+        plt.close('all') 
 
 
 class EITLatentDiffusionReconstructorCorrected:
-    """
-    修正版EIT重建器 - 正确实现论文中的梯度链
-    
-    关键修正：
-    1. 使用adjoint FNO计算 ∂J/∂σ
-    2. 使用自动微分计算 ∂σ/∂z
-    3. 实现正确的梯度链：∂J/∂z = ∂J/∂σ × ∂σ/∂z
-    4. 根据inv.py实现正确的图像加载和ground truth计算
-    5. 添加可视化功能显示初始值和最终解码图片
-    """
-    
     def __init__(self, mesh_size=64, device='cpu', checkpoint_path=None,
                  fno_model_path=None, adjoint_fno_model_path=None, num_electrodes=8, gradient_method='autodiff'):
-        """
-        初始化重建器
-        
-        Args:
-            mesh_size: 网格大小
-            device: 计算设备
-            checkpoint_path: 扩散模型检查点路径
-            fno_model_path: FNO模型路径
-            adjoint_fno_model_path: Adjoint FNO模型路径
-            num_electrodes: 电极数量
-        """
         self.mesh_size = mesh_size
         self.device = device
         self.num_electrodes = num_electrodes
         
-        # 初始化模型
         self.fno_model = None
         self.adjoint_fno_model = None
         self.fno_expected_input_channels = None  # Store expected input channels for FNO model
         
-        # 延迟加载扩散模型（避免torchvision兼容性问题）
         self.checkpoint_path = checkpoint_path
         self.diffusion_model = None
         self.sampler = None
         
-        # 加载FNO模型（如果提供了路径）
         if fno_model_path:
-            # 动态导入FNO2d
             current_dir = os.path.dirname(os.path.abspath(__file__))
             fno_path = os.path.join(current_dir, "model", "FNO.py")
             spec = importlib.util.spec_from_file_location("fno_module", fno_path)
@@ -417,9 +360,7 @@ class EITLatentDiffusionReconstructorCorrected:
             self.fno_model.eval()
             print("FNO model loaded successfully")
         
-        # 加载Adjoint FNO模型（只有在使用adjoint_fno梯度方法时才加载）
         if adjoint_fno_model_path and gradient_method == 'adjoint_fno':
-            # 动态导入AdjointFNO2d
             current_dir = os.path.dirname(os.path.abspath(__file__))
             adjoint_fno_path = os.path.join(current_dir, "train_adjoint_fno.py")
             spec = importlib.util.spec_from_file_location("adjoint_fno_module", adjoint_fno_path)
@@ -443,15 +384,12 @@ class EITLatentDiffusionReconstructorCorrected:
         else:
             self.adjoint_fno_model = None
         
-        # 初始化扩散模型（如果提供了检查点路径）
         if checkpoint_path:
             self.diffusion_model = get_finetuned_model(checkpoint_path, device=device)
             self.sampler = DDIMSampler(self.diffusion_model)
-            # 初始化采样器的schedule
             self.sampler.make_schedule(ddim_num_steps=50, ddim_eta=0.0, verbose=False)
             print("扩散模型初始化完成")
         
-        # 加载FNO归一化参数 - 参考06_compare_gradients.py
         fno_norm_path = 'data/normalization_params.npy'
         fno_params = np.load(fno_norm_path, allow_pickle=True).item()
         self.normalizers = {
@@ -460,12 +398,11 @@ class EITLatentDiffusionReconstructorCorrected:
             'g_lift': GaussianNormalizer(mean=torch.tensor(fno_params['g_lift']['mean']), 
                                         std=torch.tensor(fno_params['g_lift']['std']))
         }
-        # 移到指定设备
+
         for key in self.normalizers:
             self.normalizers[key].to(device)
         print(f"FNO normalizers loaded from: {fno_norm_path}")
         
-        # 加载伴随FNO的归一化参数
         adjoint_norm_path = 'data/adjoint_normalization_params.npy'
         adjoint_params = np.load(adjoint_norm_path, allow_pickle=True).item()
         self.adjoint_normalizers = {
@@ -474,7 +411,6 @@ class EITLatentDiffusionReconstructorCorrected:
             'u_diff_lift': GaussianNormalizer(mean=torch.tensor(adjoint_params['u_diff_lift']['mean']), 
                                                 std=torch.tensor(adjoint_params['u_diff_lift']['std']))
         }
-        # 移到指定设备
         for key in self.adjoint_normalizers:
             self.adjoint_normalizers[key].to(device)
         print(f"Adjoint normalizers loaded from: {adjoint_norm_path}")
@@ -529,89 +465,70 @@ class EITLatentDiffusionReconstructorCorrected:
         return x_in
     
     def image_to_conductivity(self, decoded_img):
-        """
-        将VAE解码的图像转换为电导率
-        
-        Args:
-            decoded_img: VAE解码的图像，形状为[batch, channels, height, width]，值域[-1,1]
-            
-        Returns:
-            conductivity: 电导率张量，形状为[batch, height, width]，值域[0.1, 100]
-        """
-        # 从图像转换为电导率 - 与重建过程中的转换保持一致
-        conductivity = decoded_img[:,0:1,:,:]  # 只使用第一个通道
+        conductivity = decoded_img[:,0:1,:,:] 
         conductivity = torch.clamp(conductivity, -1.0, 1.0)
         conductivity = (conductivity + 1.0) / 2.0  # [-1,1] -> [0,1]
         
-        # 将[-1,1] -> [0,1] -> [0.1,100]
         min_value = 0.01
         max_value = 1.0
         conductivity = min_value + conductivity * (max_value - min_value)  # [0,1] -> [0.1,100]
         
-        # 确保电导率为正值
         conductivity = torch.clamp(conductivity, min_value, max_value)
         conductivity = F.interpolate(conductivity, size=(256, 256), mode='bilinear', align_corners=False)
-        conductivity = conductivity.squeeze(1)  # 移除channel维度，保持[batch, height, width]
+        conductivity = conductivity.squeeze(1) 
         
         return conductivity
     
     def compute_measurements(self, u_target):
-        """从u_target直接提取边界测量值（上/下/左/右边界）。"""
         u = torch.as_tensor(u_target, dtype=torch.float32)
         u_np = u.detach().cpu().numpy()
         
-        # 确保u_np是2D数组 (height, width)
         if u_np.ndim == 4:  # [batch, height, width, channels]
-            u_np = u_np[0, :, :, 0]  # 取第一个batch和第一个channel
+            u_np = u_np[0, :, :, 0]  
         elif u_np.ndim == 3:  # [batch, height, width] 或 [height, width, channels]
             if u_np.shape[-1] == 1:  # [height, width, 1]
                 u_np = u_np[:, :, 0]
             else:  # [batch, height, width]
                 u_np = u_np[0, :, :]
-        elif u_np.ndim == 2:  # [height, width] - 已经是正确格式
+        elif u_np.ndim == 2:  # [height, width]
             pass
         else:
             raise ValueError(f"Unexpected u_target dimension: {u_np.shape}")
             
         measurements = []
-        measurements.extend(u_np[0, :])    # 上边界
-        measurements.extend(u_np[-1, :])   # 下边界
-        measurements.extend(u_np[:, 0])    # 左边界
-        measurements.extend(u_np[:, -1])   # 右边界
+        measurements.extend(u_np[0, :])    
+        measurements.extend(u_np[-1, :])   
+        measurements.extend(u_np[:, 0])    
+        measurements.extend(u_np[:, -1])  
         measurements = np.array(measurements)
             
         return measurements
     
     def compute_measurements_differentiable(self, u_target):
-        """从u_target直接提取边界测量值，保持梯度追踪（用于自动微分）。"""
         u = u_target
         
-        # 确保u是正确的2D格式 [height, width]
         if u.ndim == 4:  # [batch, height, width, channels]
-            u = u[0, :, :, 0]  # 取第一个batch和第一个channel
+            u = u[0, :, :, 0] 
         elif u.ndim == 3:  # [batch, height, width] 或 [height, width, channels]
             if u.shape[-1] == 1:  # [height, width, 1]
                 u = u[:, :, 0]
             else:  # [batch, height, width]
                 u = u[0, :, :]
-        elif u.ndim == 2:  # [height, width] - 已经是正确格式
+        elif u.ndim == 2:  # [height, width] 
             pass
         else:
             raise ValueError(f"Unexpected u_target dimension: {u.shape}")
             
-        # 使用torch.cat连接边界值，保持梯度追踪
         measurements = torch.cat([
-            u[0, :],     # 上边界
-            u[-1, :],    # 下边界
-            u[:, 0],     # 左边界
-            u[:, -1]     # 右边界
+            u[0, :],   
+            u[-1, :],   
+            u[:, 0],   
+            u[:, -1]     
         ])
             
         return measurements       
 
     def tensor_to_fenics_function(self, tensor, V, N_grid):
-        """将PyTorch张量转换为FEniCS函数"""
-        # 创建一个自定义的UserExpression来从张量中插值
         class TensorExpression(UserExpression):
             def __init__(self, tensor_data, **kwargs):
                 super().__init__(**kwargs)
@@ -619,21 +536,17 @@ class EITLatentDiffusionReconstructorCorrected:
                 self.N_grid = N_grid
                 
             def eval(self, value, x):
-                    # 将[-1,1]的坐标映射到[0,N_grid]，使用更精确的插值
                 i_float = (x[0] + 1) / 2 * self.N_grid
                 j_float = (x[1] + 1) / 2 * self.N_grid
-                    
-                    # 双线性插值
+                
                 i_low = max(0, min(int(i_float), self.N_grid - 1))
                 i_high = min(i_low + 1, self.N_grid)
                 j_low = max(0, min(int(j_float), self.N_grid - 1))
                 j_high = min(j_low + 1, self.N_grid)
                     
-                    # 插值权重
                 w_i = i_float - i_low
                 w_j = j_float - j_low
                     
-                    # 双线性插值
                 value[0] = (self.tensor_data[j_low, i_low] * (1 - w_i) * (1 - w_j) +
                             self.tensor_data[j_low, i_high] * w_i * (1 - w_j) +
                             self.tensor_data[j_high, i_low] * (1 - w_i) * w_j +
@@ -642,53 +555,40 @@ class EITLatentDiffusionReconstructorCorrected:
             def value_shape(self):
                 return ()
         
-        # 创建表达式并插值到函数空间
         expr = TensorExpression(tensor, degree=1)
         func = Function(V)
         func.interpolate(expr)
         return func
     
     def process_boundary_diff_direct(self, u_current, target_measurements, N_grid):
-        """
-        直接从边界测量值处理边界差值，避免不必要的转换和精度损失
-        
-        Args:
-            u_current: 当前解 (torch tensor)
-            target_measurements: 目标边界测量值 (1D数组)
-            N_grid: 网格大小
-        
-        Returns:
-            u_diff_lift_tensor: 边界差值的拉普拉斯提升 (torch tensor)
-        """
-        # 导入需要的函数
+
         spec = importlib.util.spec_from_file_location("generate_adjoint_data", 
                                                         os.path.join(os.path.dirname(__file__), "generate_adjoint_data.py"))
         generate_adjoint_data = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generate_adjoint_data)
         expr_boundary_values = generate_adjoint_data.expr_boundary_values
         solve_laplace_lift = generate_adjoint_data.solve_laplace_lift
-        # 创建FEniCS网格和函数空间
+
         mesh = RectangleMesh(MPI.comm_self, Point(-1, -1), Point(1, 1), N_grid, N_grid)
         P1 = FiniteElement("CG", mesh.ufl_cell(), 1)
         V = FunctionSpace(mesh, P1)
         
-        # 将当前解转换为FEniCS函数
+ 
         u_current_fenics = self.tensor_to_fenics_function(u_current, V, N_grid)
         
-        # 从当前解提取边界值
+
         boundary_current = expr_boundary_values(u_current_fenics, degree=1)
         
-        # 直接从target_measurements创建边界目标表达式
+
         target_measurements = np.array(target_measurements)
         n_points_per_edge = N_grid + 1
+
+        top_boundary = target_measurements[:n_points_per_edge]        
+        bottom_boundary = target_measurements[n_points_per_edge:2*n_points_per_edge]  
+        left_boundary = target_measurements[2*n_points_per_edge:3*n_points_per_edge]  
+        right_boundary = target_measurements[3*n_points_per_edge:4*n_points_per_edge]  
         
-        # 分解边界测量值
-        top_boundary = target_measurements[:n_points_per_edge]         # 上边界
-        bottom_boundary = target_measurements[n_points_per_edge:2*n_points_per_edge]  # 下边界
-        left_boundary = target_measurements[2*n_points_per_edge:3*n_points_per_edge]  # 左边界
-        right_boundary = target_measurements[3*n_points_per_edge:4*n_points_per_edge]  # 右边界
-        
-        # 创建直接的边界目标表达式
+
         class DirectBoundaryTargetExpression(UserExpression):
             def __init__(self, top_vals, bottom_vals, left_vals, right_vals, **kwargs):
                 super().__init__(**kwargs)
@@ -699,12 +599,11 @@ class EITLatentDiffusionReconstructorCorrected:
                 self.N_grid = N_grid
             
             def eval(self, value, x):
-                # 将物理坐标映射到网格索引
-                # 物理域：[-1, 1] x [-1, 1]，网格：[0, N_grid] x [0, N_grid]
+
                 i = int(round((x[0] + 1) / 2 * self.N_grid))
                 j = int(round((x[1] + 1) / 2 * self.N_grid))
                 
-                # 边界检查和值分配
+
                 if abs(x[1] + 1) < 1e-10:  # 下边界 (y = -1)
                     idx = max(0, min(i, self.N_grid))
                     value[0] = self.bottom_vals[idx]
@@ -718,7 +617,7 @@ class EITLatentDiffusionReconstructorCorrected:
                     idx = max(0, min(j, self.N_grid))
                     value[0] = self.right_vals[idx]
                 else:
-                    value[0] = 0.0  # 内部点
+                    value[0] = 0.0  
             
             def value_shape(self):
                 return ()
@@ -727,7 +626,6 @@ class EITLatentDiffusionReconstructorCorrected:
             top_boundary, bottom_boundary, left_boundary, right_boundary, degree=1
         )
         
-        # 创建边界差值表达式
         class BoundaryDiffExpression(UserExpression):
             def __init__(self, boundary_current, boundary_target, **kwargs):
                 super().__init__(**kwargs)
@@ -746,100 +644,63 @@ class EITLatentDiffusionReconstructorCorrected:
         
         boundary_diff = BoundaryDiffExpression(boundary_current, boundary_target, degree=1)
             
-        # 使用拉普拉斯提升函数
+
         u_diff_lift_fenics = solve_laplace_lift(mesh, boundary_diff)
             
-        # 将FEniCS函数转换回PyTorch张量
+
         u_diff_lift_values = u_diff_lift_fenics.compute_vertex_values().reshape((N_grid + 1, N_grid + 1))
         u_diff_lift_tensor = torch.from_numpy(u_diff_lift_values).float().to(self.device)
         
         return u_diff_lift_tensor   
 
     def compute_gradient_adjoint_fno_direct(self, sigma_initial, u_current, target_measurements):
-        """
-        使用伴随FNO模型计算梯度 - 优化版本，直接使用边界测量值
-        避免不必要的转换和精度损失
-        
-        Args:
-            sigma_initial: 初始电导率（伴随FNO模型需要作为输入）
-            u_current: 当前解（从正向FNO计算得到）
-            target_measurements: 目标边界测量值（1D数组）
-        
-        Returns:
-            gradient_adjoint_fno: 梯度
-            lambda_pred: 伴随变量
-            elapsed_time: 计算时间
-        """
-        # print("Computing gradient with Adjoint FNO method (direct)...")
-        
-        # 直接使用边界测量值处理边界差值，避免精度损失
+
         u_diff_lift_inference = self.process_boundary_diff_direct(
             u_current, target_measurements, N_grid=u_current.shape[0]-1
         )
             
-        # --- 使用伴随FNO模型求解伴随问题 ---
-        # 使用与训练时完全相同的归一化方式
         sigma_mean = self.adjoint_normalizers['sigma'].mean
         sigma_std = self.adjoint_normalizers['sigma'].std
         u_diff_lift_mean = self.adjoint_normalizers['u_diff_lift'].mean
         u_diff_lift_std = self.adjoint_normalizers['u_diff_lift'].std
         
-        # 手动归一化，与训练时完全一致
         sigma_norm_adj = (sigma_initial - sigma_mean) / sigma_std
         u_diff_lift_norm = (u_diff_lift_inference - u_diff_lift_mean) / u_diff_lift_std
         
-        # 构建输入张量
         x_in_adj = torch.stack([sigma_norm_adj, u_diff_lift_norm], dim=-1).unsqueeze(0)
-            
-        # 伴随FNO预测伴随变量（归一化的输出）
+
         with torch.no_grad():
             lambda_pred_norm = self.adjoint_fno_model(x_in_adj).squeeze(0)
         
-        # 反归一化伴随变量
         lambda_mean = self.adjoint_normalizers['lambda'].mean
         lambda_std = self.adjoint_normalizers['lambda'].std
         lambda_pred = lambda_pred_norm * lambda_std + lambda_mean
         
-        # --- 计算梯度 ∂J/∂σ = -∇u·∇λ ---
-        # 计算梯度（使用有限差分）- 参考06_compare_gradients.py
         u_current_2d = u_current.detach().cpu().numpy()
         lambda_pred_2d = lambda_pred.detach().cpu().numpy()
         
         grad_u_x, grad_u_y = self.compute_gradient_fd(u_current_2d, dx=2.0/u_current_2d.shape[0])
         grad_lambda_x, grad_lambda_y = self.compute_gradient_fd(lambda_pred_2d, dx=2.0/lambda_pred_2d.shape[0])
         
-        # 梯度计算：∂J/∂σ = -∇u·∇λ
         gradient_adjoint_fno_np = -(grad_u_x * grad_lambda_x + grad_u_y * grad_lambda_y)
         gradient_adjoint_fno = torch.from_numpy(gradient_adjoint_fno_np).float().to(self.device)
         
         return gradient_adjoint_fno, lambda_pred
 
     def compute_gradient_fd(self, u, dx):
-        """
-        使用有限差分计算梯度
-        
-        Args:
-        u: 输入场 (numpy array)
-        dx: 网格间距
-        
-        Returns:
-        grad_u_x, grad_u_y: x和y方向的梯度
-        """
+
         grad_u_x = np.zeros_like(u)
         grad_u_y = np.zeros_like(u)
         
-        # 检查数组大小，如果某个维度只有1个元素，则无法计算梯度
         if u.shape[0] <= 1 or u.shape[1] <= 1:
             print(f"警告：数组大小 {u.shape} 太小，无法计算梯度，返回零数组")
             return grad_u_x, grad_u_y
         
-        # 中心差分
         if u.shape[0] > 2:
             grad_u_x[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2 * dx)
         if u.shape[1] > 2:
             grad_u_y[:, 1:-1] = (u[:, 2:] - u[:, :-2]) / (2 * dx)
         
-        # 边界处使用前向/后向差分
         if u.shape[0] > 1:
             grad_u_x[0, :] = (u[1, :] - u[0, :]) / dx
             grad_u_x[-1, :] = (u[-1, :] - u[-2, :]) / dx
@@ -852,21 +713,16 @@ class EITLatentDiffusionReconstructorCorrected:
     def reconstruct_corrected(self, boundary_conditions=None, 
                                 max_iterations=2000, learning_rate=5e-3,
                                 save_interval=1, output_dir=None, gradient_method='adjoint_fno',
-                                ablation_mode='dilo'):  # <--- 新增参数
-        """
-        修正版EIT重建 - 严格保留DiLO原逻辑，外挂消融支持
-        """
+                                ablation_mode='dilo'):  
         print(f"Starting CORRECTED EIT reconstruction with Latent Diffusion + {gradient_method.upper()} method...")
-        print(f"Ablation Mode: {ablation_mode.upper()}") # 打印当前模式
+        print(f"Ablation Mode: {ablation_mode.upper()}") 
     
         print(f"Starting CORRECTED EIT reconstruction with Latent Diffusion + {gradient_method.upper()} method...")
         print(f"Max iterations: {max_iterations}")
         print(f"Learning rate: {learning_rate}")
         print(f"Gradient method: {gradient_method}")
         
-        # 扩散模型已在__init__中初始化
         
-        print("生成观测数据...")
         latent_shape = (1, 3, 64, 64)  
         noise_target = torch.randn(latent_shape, device=self.device)
         
@@ -896,18 +752,13 @@ class EITLatentDiffusionReconstructorCorrected:
         target_measurements = self.compute_measurements(u_target)
         latent_shape = (1, 3, 64, 64)
         
-        # ==========================================
-        # 🌟 消融实验模式分支 🌟
-        # ==========================================
+
         if ablation_mode in ['dilo', 'stochastic']:
-            # ---------------------------------------------------------
-            # 模式 1 & 2: 基于优化的方法 (Optimization-based)
-            # ---------------------------------------------------------
-            # 严格保持原始设定
+
             opt_t_start = 100
             opt_temp = 0.0 if ablation_mode == 'dilo' else 1.0
             
-            # 初始化latent code
+
             noise_latent = torch.randn(latent_shape, device=self.device, requires_grad=True)
             optimizer = torch.optim.AdamW([noise_latent], lr=learning_rate)
             losses = []
@@ -917,11 +768,11 @@ class EITLatentDiffusionReconstructorCorrected:
             for iteration in range(max_iterations):
                 optimizer.zero_grad()
                 
-                # 锁死随机序列以暴露梯度方差爆炸，同时保证dilo模式不受任何干扰
+
                 if ablation_mode == 'stochastic':
                     torch.manual_seed(42)
                 
-                # 1. 通过扩散模型去噪得到clean latent z
+
                 decoded_z = self.sampler.ddecode(
                     noise_latent,
                     t_start=opt_t_start,
@@ -1220,7 +1071,6 @@ def main():
     sigma, g_lift, u = prepare_sample(reader, 0, device)
     boundary_conditions = g_lift
     
-    # 运行重建
     print("\n" + "="*80)
     print("Starting EIT Reconstruction Test")
     print("="*80)
@@ -1232,7 +1082,7 @@ def main():
         save_interval=10,  
         output_dir=output_dir,  
         gradient_method=args.gradient_method,
-        ablation_mode=args.ablation_mode  # <--- 传递参数
+        ablation_mode=args.ablation_mode 
     )
 
 
