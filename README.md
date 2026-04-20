@@ -13,13 +13,15 @@ Diffusion models have emerged as powerful generative priors for solving PDE-cons
 ```bash
 git clone [https://github.com/haibo-research/DiLO.git](https://github.com/haibo-research/DiLO.git)
 cd DiLO
-<br />
+```
+<br /> 
 
-2) Download pretrained checkpoints (autoencoders and model)
+### 2) Download pretrained checkpoints (autoencoders and model)
 Our work utilizes the pre-trained Latent Diffusion Models trained on the FFHQ dataset, as introduced in High-resolution image synthesis with latent diffusion models (CVPR 2022).
 
 Please run the following commands to download the necessary checkpoints:
 
+```
 Bash
 mkdir -p models/ldm
 wget [https://ommer-lab.com/files/latent-diffusion/ffhq.zip](https://ommer-lab.com/files/latent-diffusion/ffhq.zip) -P ./models/ldm
@@ -28,35 +30,44 @@ unzip models/ldm/ffhq.zip -d ./models/ldm
 mkdir -p models/first_stage_models/vq-f4
 wget [https://ommer-lab.com/files/latent-diffusion/vq-f4.zip](https://ommer-lab.com/files/latent-diffusion/vq-f4.zip) -P ./models/first_stage_models/vq-f4
 unzip models/first_stage_models/vq-f4/vq-f4.zip -d ./models/first_stage_models/vq-f4
+```
 <br />
 
-3) Set environment
+
+### 3) Set environment
 Install the required dependencies via conda:
 
+```
 Bash
 conda env create -f environment.yaml
 conda activate dilo
+```
 (Note: Please ensure you have the appropriate CUDA Toolkit installed matching your PyTorch version).
 
 <br />
 
-4) Train Neural Operator
+### 4) Train Neural Operator
 To train the fast neural operator serving as the surrogate solver for the forward physical model, run:
 
+```
 Bash
 python run_fno.py
+```
 <br />
 
-5) Inference / Reconstruction
+### 5) Inference / Reconstruction
 To perform the inference and solve the inverse problems using the proposed Diffusion Latent Optimization (DiLO), run:
 
+```
 Bash
 python run_reconstruction.py
+```
+
 The current code supports PDE-constrained inverse problems including Electrical Impedance Tomography, Inverse Scattering, and Inverse Navier-Stokes. You can modify the configuration files or arguments to switch between different physical tasks.
 
 <br />
 
-Citation
+## Citation
 If you find our work or this code useful for your research, please consider citing our paper:
 
 Code snippet
