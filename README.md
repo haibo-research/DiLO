@@ -1,6 +1,6 @@
 # DiLO: Decoupling Generative Priors and Neural Operators via Diffusion Latent Optimization for Inverse Problems
 
-![example](https://github.com/haibo-research/DiLO/utils/piprline_overview.png) 
+![example](https://github.com/haibo-research/DiLO/utils/pipeline_overview.png) 
 
 ## Abstract
 
