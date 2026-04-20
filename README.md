@@ -73,6 +73,7 @@ If you find our work or this code useful for your research, please consider citi
   year={2026}
 }
 ```
+<br />
 
-Acknowledgements
+## Acknowledgements
 This repository is built upon the Latent Diffusion Models codebase. We thank the authors for their open-source contributions.
