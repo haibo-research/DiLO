@@ -1,0 +1,8 @@
+# Ignore model checkpoints and working directories
+work_dir/
+
+# Ignore log files and reconstruction results
+logs/
+
+# Ignore large datasets and numpy files
+data/
