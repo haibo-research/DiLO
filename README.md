@@ -65,12 +65,14 @@ The current code supports PDE-constrained inverse problems including Electrical 
 ## Citation
 If you find our work or this code useful for your research, please consider citing our paper:
 
-Code snippet
+```
 @article{liu2026dilo,
   title={DiLO: Decoupling Generative Priors and Neural Operators via Diffusion Latent Optimization for Inverse Problems},
   author={Liu, Haibo and Lin, Guang},
   journal={arXiv preprint arXiv:2604.11375},
   year={2026}
 }
+```
+
 Acknowledgements
 This repository is built upon the Latent Diffusion Models codebase. We thank the authors for their open-source contributions.
